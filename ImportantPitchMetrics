@@ -1,0 +1,149 @@
+getwd()
+setwd("~/Desktop/DD Stats")
+
+# loading packages
+library(plyr)
+library(dplyr)
+library(devtools)
+library(DT)
+library(ggplot2)
+library(ggrepel)
+library(ggthemes)
+library(gridExtra)
+library(janitor)
+library(plotly)
+library(stringr)
+library(tidyr)
+library(tidyselect)
+library(tidyverse)
+library(data.table)
+library(reactable)
+library(ggpubr)
+
+# Load data
+BrownLive_7_18_25 <- fread("BrownLive 7.18.25.csv")
+
+# Select relevant columns
+BrownPitcherData <- subset(BrownLive_7_18_25, select = c(Pitcher, TaggedPitchType, RelSpeed, VertRelAngle, HorzRelAngle, 
+                                                         SpinRate, RelHeight, RelSide, Extension, VertBreak, InducedVertBreak, HorzBreak, 
+                                                         PlateLocHeight, PlateLocSide, VertApprAngle, HorzApprAngle))
+
+# Remove rows with "" TaggedPitchType
+BrownPitcherData <- BrownPitcherData[
+  TaggedPitchType != "" & !is.na(TaggedPitchType)]
+
+# usage %
+# Count pitches by Pitcher + Pitch Type
+PitchCounts <- BrownPitcherData[ , .N, by = .(Pitcher, TaggedPitchType)]
+setnames(PitchCounts, "N", "PitchCount")
+
+# Total pitches per pitcher
+TotalCounts <- BrownPitcherData[ , .N, by = Pitcher]
+setnames(TotalCounts, "N", "TotalPitches")
+
+# Merge and calculate usage %
+PitchUsage <- merge(PitchCounts, TotalCounts, by = "Pitcher")
+PitchUsage[, Usage_Pct := round((PitchCount / TotalPitches) * 100, 0)]
+
+# Summarize: group by Pitcher and TaggedPitchType
+BrownPitcherData <- BrownPitcherData[,.(Avg_Velo = mean(RelSpeed, na.rm = TRUE),
+                                        Max_Velo = max(RelSpeed, na.rm = TRUE),
+                                        Avg_VRA = mean(VertRelAngle, na.rm = TRUE),
+                                        Avg_HRA = mean(HorzRelAngle, na.rm = TRUE),
+                                        Avg_SpinRate = mean(SpinRate, na.rm = TRUE),
+                                        Max_SpinRate = max(SpinRate, na.rm = TRUE),
+                                        Avg_RelH = mean(RelHeight, na.rm = TRUE),
+                                        Avg_RelS = mean(RelSide, na.rm = TRUE),
+                                        Avg_Ext = mean(Extension, na.rm = TRUE),
+                                        Avg_VB = mean(VertBreak, na.rm = TRUE),
+                                        Avg_IVB = mean(InducedVertBreak, na.rm = TRUE),
+                                        Avg_HB = mean(HorzBreak, na.rm = TRUE),
+                                        Avg_PLH = mean(PlateLocHeight, na.rm = TRUE),
+                                        Avg_PLS = mean(PlateLocSide, na.rm = TRUE),
+                                        Avg_VAA = mean(VertApprAngle, na.rm = TRUE),
+                                        Avg_HAA = mean(HorzApprAngle, na.rm = TRUE)
+),
+by = .(Pitcher, TaggedPitchType)]
+
+# rounding decimals
+BrownPitcherData <- BrownPitcherData[,
+                                     .(
+                                       Avg_Velo       = round(mean(Avg_Velo, na.rm = TRUE), 1),
+                                       Max_Velo       = round(max(Max_Velo, na.rm = TRUE), 1),
+                                       Avg_VRA        = round(mean(Avg_VRA, na.rm = TRUE), 2),
+                                       Avg_HRA        = round(mean(Avg_HRA, na.rm = TRUE), 2),
+                                       Avg_SpinRate   = round(mean(Avg_SpinRate, na.rm = TRUE), 0),
+                                       Max_SpinRate   = round(max(Max_SpinRate, na.rm = TRUE), 0),
+                                       Avg_RelH       = round(mean(Avg_RelH, na.rm = TRUE), 1),
+                                       Avg_RelS       = round(mean(Avg_RelS, na.rm = TRUE), 1),
+                                       Avg_Ext        = round(mean(Avg_Ext, na.rm = TRUE), 1),
+                                       Avg_VB         = round(mean(Avg_VB, na.rm = TRUE), 1),
+                                       Avg_IVB        = round(mean(Avg_IVB, na.rm = TRUE), 1),
+                                       Avg_HB         = round(mean(Avg_HB, na.rm = TRUE), 1),
+                                       Avg_VAA        = round(mean(Avg_VAA, na.rm = TRUE), 2),
+                                       Avg_HAA        = round(mean(Avg_HAA, na.rm = TRUE), 2)
+                                     ),
+                                     by = .(Pitcher, TaggedPitchType)]
+
+# Merge usage % into final table
+BrownPitcherData <- merge(
+  BrownPitcherData,
+  PitchUsage[, .(Pitcher, TaggedPitchType, Usage_Pct)],
+  by = c("Pitcher", "TaggedPitchType")
+)
+
+# Define the order of pitch types
+pitch_order <- c("Fastball", "Slider", "Curveball", "Sweeper")
+BrownPitcherData[, TaggedPitchType := factor(TaggedPitchType, levels = pitch_order)]
+
+# Order rows by pitcher and pitch type
+setorder(BrownPitcherData, Pitcher, TaggedPitchType)
+
+# Reorder columns
+BrownPitcherData <- BrownPitcherData[, .(
+  Pitcher,
+  TaggedPitchType,
+  Usage_Pct,
+  Avg_Velo,
+  Max_Velo,
+  Avg_SpinRate,
+  Max_SpinRate,
+  Avg_VB,
+  Avg_IVB,
+  Avg_HB,
+  Avg_VAA,
+  Avg_HAA,
+  Avg_VRA,
+  Avg_HRA,
+  Avg_RelH,
+  Avg_RelS,
+  Avg_Ext
+)]
+
+# Rename column headers (only AFTER processing is done)
+setnames(BrownPitcherData,
+         old = c("TaggedPitchType", "Usage_Pct", "Avg_Velo", "Max_Velo", "Avg_SpinRate", "Max_SpinRate",
+                 "Avg_VB", "Avg_IVB", "Avg_HB", "Avg_VAA", "Avg_HAA", "Avg_VRA", "Avg_HRA", "Avg_RelH", "Avg_RelS", "Avg_Ext"),
+         new = c("Pitch Type", "Usage %", "Avg Velo", "Max Velo", "Avg Spin Rate", "Max Spin Rate",
+                 "Avg VB", "Avg IVB", "Avg HB", "Avg VAA", "Avg HAA", "Avg VRA", "Avg HRA", "Avg RelH", "Avg RelS", "Avg Ext"))
+
+# Show datatable with formatted row colors and neutral font, bold header
+datatable(BrownPitcherData, rownames = FALSE, 
+          options = list(
+            dom = 't',
+            initComplete = JS(
+              "function(settings, json) {",
+              "$(this.api().table().body()).css({'font-family': 'Helvetica, Arial, sans-serif', 'font-size': '14px'});",
+              "$(this.api().table().header()).css({'font-family': 'Helvetica, Arial, sans-serif', 'font-weight': 'bold', 'font-size': '14px'});",
+              "}"
+            )
+          )
+) %>%
+  formatStyle(
+    'Pitch Type',
+    target = 'row',
+    backgroundColor = styleEqual(
+      c('Fastball', 'Slider', 'Sweeper', 'Curveball'),
+      c('#FFCCCC', '#FFFF99', '#FFD966', '#CCE5FF')  # soft red, bright yellow, deeper gold, sky blue
+    )
+  )
