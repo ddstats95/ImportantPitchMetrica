@@ -93,7 +93,8 @@ BrownPitcherData <- merge(
 )
 
 # Define the order of pitch types
-pitch_order <- c("Fastball", "Slider", "Curveball", "Sweeper")
+pitch_order <- c("Fastball", "Slider",
+                 "Sweeper", "Curveball")
 BrownPitcherData[, TaggedPitchType := factor(TaggedPitchType, levels = pitch_order)]
 
 # Order rows by pitcher and pitch type
