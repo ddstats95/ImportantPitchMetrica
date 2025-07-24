@@ -1,2 +1,2 @@
-# ImportantPitchMetrica
+# ImportantPitchMetrics
 Important Pitch Metrics
